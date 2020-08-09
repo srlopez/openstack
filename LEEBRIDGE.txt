@@ -1,0 +1,84 @@
+##################################  BRIDGE EN UBUNTU para MV en KVM
+#### ESTO FUNCIONA !!!!! ##############################
+
+https://www.tecmint.com/create-network-bridge-in-ubuntu/
+https://www.answertopia.com/ubuntu/creating-an-ubuntu-kvm-networked-bridge-interface/
+https://computingforgeeks.com/how-to-create-and-configure-bridge-networking-for-kvm-in-linux/
+
+BR=br0
+brctl show
+nmcli conn add type bridge con-name $BR ifname $BR
+nmcli conn add type ethernet slave-type bridge con-name bridge-$BR ifname enp3s0 master $BR
+nmcli conn show 
+nmcli conn up $BR
+nmcli conn down Wired\ connection\ 1
+nmcli conn show
+# nmcli conn del $BR bridge-$BR
+# nmcli conn up Wired\ connection\ 1
+# ip link delete $BR
+brctl show
+
+virsh net-list --all
+cat >bridge-$BR.xml <<EOF
+<network>
+  <name>$BR</name>
+  <forward mode="bridge"/>
+  <bridge name="$BR" />
+</network>
+EOF
+cat bridge-$BR.xml
+virsh net-define bridge-$BR.xml
+virsh net-start $BR
+virsh net-autostart $BR
+virsh net-list --all
+# virsh net-destroy $BR; virsh net-undefine $BR
+
+
+# Ahora se puede lanzar virt-install 'VISUAL' y CDROM con 
+TEST=test
+virt-install --virt-type=kvm \
+--name ${TEST}v --os-variant=centos8  \
+--network bridge=br0,model=virtio \
+--ram 2048 --vcpus=2 \
+--disk path=/home/santi/kvm/images/centos8.qcow2,size=20,bus=virtio,format=qcow2 
+--cdrom /home/santi/kvm/iso/CentOS-8.2.2004-x86_64-minimal.iso \
+
+# Y con 'IMPORT DE DISCO' 
+mkdir $TEST
+cp CentOS-8-GenericCloud-8.2.2004-20200611.2.x86_64.qcow2 $TEST/disk.qcow2
+sudo virt-customize -a zzzz/disk.qcow2 --root-password password:1234 
+virt-install --virt-type=kvm \
+--name ${TEST}a --os-variant=centos8  \
+--network bridge=br0,model=virtio \
+--ram 2048 --vcpus=2 \
+--disk path=zzzz/disk.qcow2,bus=virtio \
+--import
+#sysctl -w net.ipv6.conf.all.disable_ipv6=1'
+
+
+##########################################################
+####  CON ESTO DE AQUÏ ABAJO NO HAY DIFERENCIA CON virbr0 ####
+####  SOLO EL RANGO DE RED
+BR=br10
+NETC=192.168.10
+cat >bridge-$BR.xml <<EOF
+<network>
+  <name>$BR</name>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+  <bridge name="vir$BR" stp="on" delay="0"/>
+  <domain name="$BR"/>
+  <ip address="$NETC.1" netmask="255.255.255.0">
+    <dhcp>
+      <range start="$NETC.100" end="$NETC.150"/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+cat bridge-$BR.xml
+
+Pero hay que hacer la creacion de la red virsh net-define bridge-$BR.xml como arriba
+

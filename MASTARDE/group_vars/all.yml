@@ -1,0 +1,10 @@
+kvm_path: 
+    vm_images: /home/santi/kvm/images
+    vm_iso: /home/santi/kvm/iso
+
+# CentOS 7
+release:
+  os_variant: centos7.0
+  img_name: CentOS-7-x86_64-GenericCloud.qcow2
+  url: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
+   

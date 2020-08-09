@@ -1,0 +1,169 @@
+INSTALACION DE OPENSTACK EN UNA MV EN QEMU/VIRT-MANAGER
+
+CENTOS8
+# ~~~~~ NOTAS ~~~~~~~~~~
+- Revisar la partición swap en CENTOS8. Creo que está bien
+- Cuando establezco las varibles ISO e IMG a '.', la instalación del S.O. funciona,
+cuando la establezco a los valores que deberina tener IMG=/home/santi/kvm/images, no funciona.!!
+# ~~~~~~~~~~~~~~~~~~~~~~
+
+
+# VARIABLES DE LA VM 8
+VM=centos8
+VMVARIANT=centos8
+IMGURL=https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.2.2004-20200611.2.x86_64.qcow2
+
+
+# VARIABLES DE LA INSTALACION
+ISO=/home/santi/kvm/iso
+IMG=/home/santi/kvm/images
+ISO=.
+IMG=.
+IMGNAME=`basename $IMGURL`
+VMBASE=$IMG/$VM
+
+# DESCARGA DE LA IMAGEN
+wget $IMGURL -O $ISO/$IMGNAME
+
+# CONFIGURACION DE OS 
+cat >cloud-config.yml <<EOF  
+#cloud-config
+hostname: openstack
+fqdn: openstack.local
+manage_etc_hosts: true
+#user centos
+password: 1234
+chpasswd: { expire: False }
+ssh_pwauth: True
+# swap ok en centos8
+swap:
+  filename: /swapfile
+  size: "auto" # or size in bytes
+  maxsize: 6G
+EOF
+
+#CONFIGURACION DE RED para el interfaz network=default
+cat >meta-data.yml <<EOF
+network-interfaces: |
+  auto eth0
+  iface eth0 inet static
+  address 192.168.122.100
+  network 192.168.122.0
+  netmask 255.255.255.0
+  broadcast 192.168.122.255
+  gateway 192.168.122.1
+  dns-nameservers 1.1.1.1 9.9.9.9
+EOF
+
+# IMAGEN DE CONFIGURACION adicional al DISCO BASE
+cloud-localds cloud-config.img cloud-config.yml meta-data.yml
+
+# DESTRUIMOS y CREAMOS LA MV Y LA LEVANTAMOS
+virsh destroy $VM #stop
+virsh undefine $VM #delete
+sudo rm -rf $VMBASE
+sudo mkdir $VMBASE
+sudo cp cloud-config.img $VMBASE
+sudo cp cloud-config.yml $VMBASE
+sudo cp meta-data.yml    $VMBASE
+
+# SETUP SO y EXPANDIMOS EL DISCO a 50G
+MEM=6144
+CPUS=2
+DSIZE=50
+sudo qemu-img convert -O qcow2 $ISO/$IMGNAME $VMBASE/$VM.qcow2
+sudo qemu-img resize $VMBASE/$VM.qcow2 ${DSIZE}G
+sudo virt-resize --expand /dev/vda1 $ISO/$IMGNAME $VMBASE/$VM.qcow2
+sudo qemu-img info $VMBASE/$VM.qcow2 
+
+virt-install \
+    --noautoconsole \
+    --name $VM \
+    --memory $MEM \
+    --vcpus $CPUS \
+    --disk $VMBASE/$VM.qcow2,device=disk,size=${DSIZE},bus=virtio,format=qcow2 \
+    --disk $VMBASE/cloud-config.img,device=cdrom \
+    --os-type linux \
+    --os-variant $VMVARIANT \
+    --virt-type kvm \
+    --graphics none \
+    --network network=default,model=virtio \
+    --import
+
+--network type=bridge,source=br0,source_mode=bridge,model=virtio \
+--network type=direct,source=enp3s0,source_mode=bridge,model=virtio \
+
+ssh-keygen -f "/home/santi/.ssh/known_hosts" -R "192.168.122.100"
+ssh centos@192.168.122.100
+
+#################################################3
+CENTOS 8 - MODO GRÁFICO
+==== El SO ====
+Como indico en la documentacion de la web
+virsh destroy centos8
+virsh undefine centos8
+sudo rm /home/santi/kvm/images/centos8.qcow2; sudo ls /home/santi/kvm/images/
+ 
+virt-install \
+--virt-type=kvm \
+--name centos8 \
+--ram 6144 \
+--disk path=/home/santi/kvm/images/centos8.qcow2,size=50,bus=virtio,format=qcow2 \
+--vcpus=2 \
+--os-type linux \
+--os-variant centos8 \
+--network network=default,model=virtio \
+--video qxl --channel spicevmc \
+--cdrom /home/santi/kvm/iso/CentOS-8.2.2004-x86_64-minimal.iso
+
+Particionamos el HD de la instalación 
+   /boot=1024, 
+   swap=Memoria asignada=6144, 
+   /=resto
+kdump=deshabilitado en laboratorio
+Keyboard Spanish
+Red. Habilitadas y establecida ip fija: 192.168.122.100/24 8.8.8.8;8.8.4.4 (DEL BRIDGE qemu)
+Hostname: openstack.local
+Time: Madrid
+Users: root/1234 
+
+
+===== LA APLICACION OPENSTACK =====
+https://www.rdoproject.org/install/packstack/
+
+dnf update -y
+dnf install network-scripts -y
+systemctl stop firewalld
+systemctl disable firewalld
+systemctl stop NetworkManager
+systemctl disable NetworkManager
+systemctl enable network
+systemctl start network
+dnf update -y
+dnf config-manager --enable PowerTools
+dnf install -y centos-release-openstack-ussuri
+dnf update -y
+dnf install -y openstack-packstack
+
+packstack --allinone
+# time packstack --debug --allinone \
+#   --provision-demo=n \
+#   --os-heat-install=y \
+#   --os-neutron-ml2-type-drivers=vxlan,flat \
+# #  --os-neutron-l2-agent=openvswitch  \
+# #  --os-neutron-ovs-bridge-mappings=br-ex:enp1s0 
+#   --os-neutron-ovs-bridge-mappings=extnet:br-ex 
+
+~~~~~
+Me ha dado algun error
+pero puedo acceder desde el host a http://192.168.122.100/dashboard
+
+Nos genera:
+/root/keystonerc_admin
+/root/keystonerc_demo
+/root/packstack-answers-20200807-101208.txt
+~~~~~~
+
+source /root/keystonerc_demo
+openstack flavor list 
+openstack service list

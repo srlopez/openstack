@@ -1,0 +1,21 @@
+#cloud-config
+hostname: openstack
+fqdn: openstack.local
+manage_etc_hosts: true
+#user centos
+password: 1234
+chpasswd: { expire: False }
+ssh_pwauth: True
+# swap ok en centos8
+swap:
+  filename: /swapfile
+  size: "auto" # or size in bytes
+  maxsize: 6G
+bootcmd:
+runcmd:
+#  dd if=/dev/zero of=/swapfile bs=1024 count=6291456
+#  chmod 600 /swapfile
+#  mkswap /swapfile
+#  swapon /swapfile
+#  echo "/swapfile swap swap defaults 0 0">>/etc/fstab
+#  sysctl vm.swappiness=10
