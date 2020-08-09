@@ -11,11 +11,3 @@ swap:
   filename: /swapfile
   size: "auto" # or size in bytes
   maxsize: 6G
-bootcmd:
-runcmd:
-#  dd if=/dev/zero of=/swapfile bs=1024 count=6291456
-#  chmod 600 /swapfile
-#  mkswap /swapfile
-#  swapon /swapfile
-#  echo "/swapfile swap swap defaults 0 0">>/etc/fstab
-#  sysctl vm.swappiness=10
