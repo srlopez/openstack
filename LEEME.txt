@@ -23,7 +23,7 @@ IMGNAME=`basename $IMGURL`
 VMBASE=$IMG/$VM
 
 # DESCARGA DE LA IMAGEN
-wget $IMGURL -O $ISO/$IMGNAME
+# wget $IMGURL -O $ISO/$IMGNAME
 
 # CONFIGURACION DE OS 
 cat >cloud-config.yml <<EOF  
@@ -132,28 +132,36 @@ Users: root/1234
 ===== LA APLICACION OPENSTACK =====
 https://www.rdoproject.org/install/packstack/
 
-# PREREQUISITOS #########
-dnf update -y
-dnf install network-scripts -y
-nmcli connection delete ens3 # <========== este interface impide arrancar network
-systemctl disable --now firewalld NetworkManager
-systemctl enable network && sudo systemctl start network
-# Disable deprecated warnings:
-touch /etc/sysconfig/disable-deprecation-warnings
-systemctl status network
+STARTTIME=$(date)
+SECONDS=0
+#
+echo -e "`hostname -I`\t`hostname`" >> /etc/hosts; cat /etc/hosts
 setenforce 0
 sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config
-echo -e "`hostname -I`\t`hostname`" >> /etc/hosts; cat /etc/hosts
-
-# LA INSTALACION
+dnf update -y
+dnf install network-scripts -y
+nmcli connection delete ens3
+systemctl disable --now firewalld NetworkManager
+systemctl enable network && sudo systemctl start network
+# touch /etc/sysconfig/disable-deprecation-warnings
+# systemctl status network
 dnf update -y
 dnf config-manager --enable PowerTools
 dnf install -y centos-release-openstack-ussuri
 dnf update -y
 dnf install -y openstack-packstack
-reboot
+dnf update -y
+dnf config-manager --enable PowerTools
+dnf install -y centos-release-openstack-ussuri
+dnf update -y
+dnf install -y openstack-packstack
+dnf update -y
+time packstack --debug --allinone
+#
+echo $STARTTIME
+duration=$SECONDS
+echo "$(($duration / 60)) minutes and $(($duration % 60)) seconds elapsed."
 
-packstack --allinone
 # time packstack --debug --allinone \
 #   --provision-demo=n \
 #   --os-heat-install=y \
@@ -163,7 +171,7 @@ packstack --allinone
 #   --os-neutron-ovs-bridge-mappings=extnet:br-ex 
 
 ~~~~~
-Me ha dado algun error
+Me ha dado algun error Parameter CONFIG_NEUTRON_L2_AGENT
 pero puedo acceder desde el host a http://192.168.122.100/dashboard
 
 Nos genera:
@@ -171,7 +179,7 @@ Nos genera:
 /root/keystonerc_demo
 /root/packstack-answers-20200807-101208.txt
 ~~~~~~
-
+# keystone ################################
 source /root/keystonerc_demo
 openstack flavor list 
 openstack service list
