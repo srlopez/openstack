@@ -1,6 +1,6 @@
 INSTALACION DE OPENSTACK EN UNA MV EN QEMU/VIRT-MANAGER
 
-CENTOS8
+# CENTOS8
 # ~~~~~ NOTAS ~~~~~~~~~~
 - Revisar la partición swap en CENTOS8. Creo que está bien
 - Cuando establezco las varibles ISO e IMG a '.', la instalación del S.O. funciona,
@@ -9,7 +9,7 @@ cuando la establezco a los valores que deberina tener IMG=/home/santi/kvm/images
 
 
 # VARIABLES DE LA VM 8
-VM=centos8
+VM=OSTACK
 VMVARIANT=centos8
 IMGURL=https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-GenericCloud-8.2.2004-20200611.2.x86_64.qcow2
 
@@ -43,10 +43,11 @@ swap:
 EOF
 
 #CONFIGURACION DE RED para el interfaz network=default
+IFACE=eth0
 cat >meta-data.yml <<EOF
 network-interfaces: |
-  auto eth0
-  iface eth0 inet static
+  auto $IFACE
+  iface $IFACE inet static
   address 192.168.122.100
   network 192.168.122.0
   netmask 255.255.255.0
@@ -127,23 +128,30 @@ Hostname: openstack.local
 Time: Madrid
 Users: root/1234 
 
-
+#######################################################################33
 ===== LA APLICACION OPENSTACK =====
 https://www.rdoproject.org/install/packstack/
 
+# PREREQUISITOS #########
 dnf update -y
 dnf install network-scripts -y
-systemctl stop firewalld
-systemctl disable firewalld
-systemctl stop NetworkManager
-systemctl disable NetworkManager
-systemctl enable network
-systemctl start network
+nmcli connection delete ens3 # <========== este interface impide arrancar network
+systemctl disable --now firewalld NetworkManager
+systemctl enable network && sudo systemctl start network
+# Disable deprecated warnings:
+touch /etc/sysconfig/disable-deprecation-warnings
+systemctl status network
+setenforce 0
+sed -i 's/^SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config
+echo -e "`hostname -I`\t`hostname`" >> /etc/hosts; cat /etc/hosts
+
+# LA INSTALACION
 dnf update -y
 dnf config-manager --enable PowerTools
 dnf install -y centos-release-openstack-ussuri
 dnf update -y
 dnf install -y openstack-packstack
+reboot
 
 packstack --allinone
 # time packstack --debug --allinone \

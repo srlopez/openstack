@@ -1,3 +1,2 @@
-CentOS*
-centos8/
-OSTACK/
+*.img
+*.qcow2
